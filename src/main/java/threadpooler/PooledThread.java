@@ -10,7 +10,8 @@ public class PooledThread<T, K> {
     private List<T> data;
     private int delay = 0;
     private final ThreadPool<T, K> threadPool;
-    private boolean finished = false;
+    private boolean finished = false, abort = false;
+    private Exception stackTrace = null;
 
     public PooledThread(ThreadPool<T, K> threadPool, ThreadTask<T, K> task) {
         this.threadPool = threadPool;
@@ -24,18 +25,25 @@ public class PooledThread<T, K> {
     }
 
     private void run() {
-        ListIterator<T> dataPoint = data.listIterator();
-        while(dataPoint.hasNext()) {
-            T currentData = dataPoint.next();
-            K currentResult = task.execute(currentData);
-            threadPool.addResult(currentData, currentResult);
-            try {
-                Thread.sleep(delay);
-            } catch (InterruptedException e) {
-                throw new SecurityException("Thread " + thread.getName() + "interrupted!", e);
+        try {
+            ListIterator<T> dataPoint = data.listIterator();
+            while(dataPoint.hasNext()) {
+                long start = System.currentTimeMillis();
+                if(abort)
+                    break;
+                T currentData = dataPoint.next();
+                K currentResult = task.execute(currentData);
+                threadPool.addResult(currentData, currentResult);
+                if(!dataPoint.hasNext())
+                    break;
+                long end = System.currentTimeMillis();
+                Thread.sleep(Long.max(0, delay - (end - start)));
             }
+            finished = true;
+        }catch (Exception e) {
+            stackTrace = e;
+            threadPool.setException(true);
         }
-        finished = true;
     }
 
     public void start(List<T> data) {
@@ -65,10 +73,11 @@ public class PooledThread<T, K> {
         return finished;
     }
 
-    @Override
-    public String toString() {
-        return "PooledThread{" +
-                ", data=" + data +
-                '}';
+    public Exception getStackTrace() {
+        return stackTrace;
+    }
+
+    public void abort() {
+        abort = true;
     }
 }

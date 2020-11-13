@@ -6,22 +6,25 @@ import java.util.stream.Collectors;
 public class ThreadPool<T, K> {
 
     private List<T> input;
-    private Set<PooledThread<T, K>> threads = new HashSet<>();
-    private Map<T, K> results = new HashMap<>();
-    private Set<DataProcessor<T, K>> directDataProcessor = new HashSet<>();
-    private Set<MapDataProcessor<T, K>> allDataProcessor = new HashSet<>();
-    private Thread hypervisor;
-    private boolean finished;
+    private final Set<PooledThread<T, K>> threads = new HashSet<>();
+    private final Map<T, K> results = new HashMap<>();
+    private final Set<DataProcessor<T, K>> directDataProcessor = new HashSet<>();
+    private final Set<MapDataProcessor<T, K>> allDataProcessor = new HashSet<>();
+    private final Thread hypervisor;
+    private boolean finished, exception = false;
     private int hypervisorDelay = 1000;
 
     public ThreadPool(int threadsCount) {
         if(threadsCount == 0)
             throw new SecurityException("Thread Count must be over 1");
         for (int i = 0; i < threadsCount; i++) {
-            threads.add(new PooledThread<T, K>(this));
+            threads.add(new PooledThread<>(this));
         }
         hypervisor = new Thread(this::hypervisor, this.toString() + "-Hypervisor");
-        hypervisor.start();
+    }
+
+    public ThreadPool() {
+        this(Runtime.getRuntime().availableProcessors());
     }
 
     public void addDirectDataProcessor(DataProcessor<T, K> dataProcessor) {
@@ -43,8 +46,8 @@ public class ThreadPool<T, K> {
         int i = 0;
         while(iterator.hasNext()) {
             PooledThread<T, K> currentThread = iterator.next();
-            int finalI = (int) i;
-            List<T> currentInput = new ArrayList<>(input.stream().filter(t -> input.indexOf(t) >= finalI * splitSize && input.indexOf(t) < finalI * splitSize + splitSize).collect(Collectors.toList()));
+            int finalI = i;
+            List<T> currentInput = input.stream().filter(t -> input.indexOf(t) >= finalI * splitSize && input.indexOf(t) < finalI * splitSize + splitSize).collect(Collectors.toList());
             currentThread.setData(currentInput);
             i++;
         }
@@ -52,6 +55,7 @@ public class ThreadPool<T, K> {
 
     public void start() {
         threads.forEach(PooledThread::start);
+        hypervisor.start();
     }
 
     public void setDelay(int delay) {
@@ -71,7 +75,21 @@ public class ThreadPool<T, K> {
     protected void hypervisor() {
         while(!finished) {
             if(threads.stream().noneMatch(tkPooledThread -> !tkPooledThread.isFinished())) {
-                allDataProcessor.forEach(tkMapDataProcessor -> tkMapDataProcessor.execute(results));
+                try {
+                    allDataProcessor.forEach(tkMapDataProcessor -> tkMapDataProcessor.execute(results));
+                    finished = true;
+                }catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            if(exception) {
+                threads.forEach(PooledThread::abort);
+                System.out.println("Aborting all Threads!");
+                threads.forEach( tkPooledThread -> {
+                    if(tkPooledThread.getStackTrace() != null) {
+                        tkPooledThread.getStackTrace().printStackTrace();
+                    }
+                });
                 finished = true;
             }
             try {
@@ -84,13 +102,17 @@ public class ThreadPool<T, K> {
 
     protected void addResult(T input, K result) {
         results.put(input, result);
-        if(directDataProcessor != null)
+        if(!directDataProcessor.isEmpty())
             try {
                 directDataProcessor.forEach(dataProcessor -> dataProcessor.execute(input, result));
             }catch (Exception e) {
                 System.out.println("Direct Data Processor created an Exception");
                 e.printStackTrace();
             }
+    }
+
+    protected void setException(boolean exception) {
+        this.exception = exception;
     }
 
     @Override
