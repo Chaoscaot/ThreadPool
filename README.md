@@ -2,8 +2,8 @@
 
 Allow making Worker Threads and Using them in a Thread Pool!
 
-##How to Use
-###Create the ThreadPool
+## How to Use
+### Create the ThreadPool
 A ThreadPool has 2 Type Parameters. The first is the Input, the second is the Output. \
 If the ThreadPool isn't given a number it takes the amount of Threads given by the Processor.
 ```java
@@ -11,13 +11,13 @@ ThreadPool<Integer, Boolean> pool = new ThreadPool(2);
 //Creates a ThreadPool with 2 Threads which takes an Integer and outputs a Boolean
 ```
 
-###Give it an Input
+### Give it an Input
 The input can be any List of the First Type Parameter given to the ThreadPool.
 ```java
 pool.setInput(Arrays.asList(1, 2 , 3, 4));
 ```
 
-###Set the Operation
+### Set the Operation
 The Operation is an Interface of the type ThreadTask.
 ```java
 pool.setCalculations(input -> {
@@ -25,7 +25,7 @@ pool.setCalculations(input -> {
 });
 ```
 
-###Add an Direct Data Processor
+### Add an Direct Data Processor
 A Direct Data Processor is triggered everytime a new result is Finished.
 ```java
 pool.addDirectDataProcessor((input, result) -> {
