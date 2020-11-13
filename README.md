@@ -34,7 +34,7 @@ pool.addDirectDataProcessor((input, result) -> {
 ```
 
 
-###Add an All Data Processor
+### Add an All Data Processor
 An All Data Processor is triggered after all Operations are completed.
 ```java
 pool.setAllDataProcessor(input -> {
@@ -42,14 +42,14 @@ pool.setAllDataProcessor(input -> {
 });
 ```
 
-###Set The Hypervisor Delay
+### Set The Hypervisor Delay
 This is optional but if the Delay between checking if the Threads are Finished is too Long or too short for your use case.\
 The Default delay is 1000 Milliseconds.
 ```java
 pool.setHypervisorDelay(100);
 ``` 
 
-###Start the Pool
+### Start the Pool
 After all of that the ThreadPool must be started.
 ```java
 pool.start();
