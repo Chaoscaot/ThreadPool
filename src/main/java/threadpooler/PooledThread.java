@@ -1,17 +1,14 @@
 package threadpooler;
 
-import java.util.List;
-import java.util.ListIterator;
-
 public class PooledThread<T, K> {
 
     private ThreadTask<T, K> task;
     private final Thread thread;
-    private List<T> data;
     private int delay = 0;
     private final ThreadPool<T, K> threadPool;
     private boolean finished = false, abort = false;
     private Exception stackTrace = null;
+    private boolean waitForStop = false, run = true;
 
     public PooledThread(ThreadPool<T, K> threadPool, ThreadTask<T, K> task) {
         this.threadPool = threadPool;
@@ -26,18 +23,17 @@ public class PooledThread<T, K> {
 
     private void run() {
         try {
-            ListIterator<T> dataPoint = data.listIterator();
-            while(dataPoint.hasNext()) {
-                long start = System.currentTimeMillis();
+            T currentData;
+            while(run) {
+                if((currentData = threadPool.getData()) == null)
+                    if(waitForStop)
+                        continue;
+                    else
+                        break;
                 if(abort)
                     break;
-                T currentData = dataPoint.next();
                 K currentResult = task.execute(currentData);
                 threadPool.addResult(currentData, currentResult);
-                if(!dataPoint.hasNext())
-                    break;
-                long end = System.currentTimeMillis();
-                Thread.sleep(Long.max(0, delay - (end - start)));
             }
             finished = true;
         }catch (Exception e) {
@@ -46,19 +42,10 @@ public class PooledThread<T, K> {
         }
     }
 
-    public void start(List<T> data) {
-        if(task == null) throw new NullPointerException("Task is Null");
-        this.data = data;
-        thread.start();
-    }
-
     public void start() {
-        if(task == null) throw new NullPointerException("Task is Null");
+        if(task == null)
+            throw new NullPointerException("Task is Null");
         thread.start();
-    }
-
-    public void setData(List<T> data) {
-        this.data = data;
     }
 
     public void setDelay(int delay) {
@@ -79,5 +66,17 @@ public class PooledThread<T, K> {
 
     public void abort() {
         abort = true;
+    }
+
+    public boolean isWaitForStop() {
+        return waitForStop;
+    }
+
+    public void setWaitForStop(boolean waitForStop) {
+        this.waitForStop = waitForStop;
+    }
+
+    protected void callStop() {
+        run = false;
     }
 }
