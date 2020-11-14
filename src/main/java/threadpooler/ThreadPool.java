@@ -1,14 +1,16 @@
 package threadpooler;
 
 import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 public class ThreadPool<T, K> {
 
-    private List<T> input = new ArrayList<>();
+    private final List<T> input = new ArrayList<>();
     private final Set<PooledThread<T, K>> threads = new HashSet<>();
     private final Map<T, K> results = new HashMap<>();
-    private final Set<DataProcessor<T, K>> directDataProcessor = new HashSet<>();
-    private final Set<MapDataProcessor<T, K>> allDataProcessor = new HashSet<>();
+    private final Set<BiConsumer<T, K>> directDataProcessor = new HashSet<>();
+    private final Set<Consumer<Map<T, K>>> allDataProcessor = new HashSet<>();
     private final Thread hypervisor;
     private boolean finished, exception = false, waitForStop = false, noData = false;
     private int hypervisorDelay = 1000;
@@ -26,11 +28,11 @@ public class ThreadPool<T, K> {
         this(Runtime.getRuntime().availableProcessors() - 2);
     }
 
-    public void addDirectDataProcessor(DataProcessor<T, K> dataProcessor) {
+    public void addDirectDataProcessor(BiConsumer<T, K> dataProcessor) {
         directDataProcessor.add(dataProcessor);
     }
 
-    public void setAllDataProcessor(MapDataProcessor<T, K> dataProcessor) {
+    public void setAllDataProcessor(Consumer<Map<T, K>> dataProcessor) {
         allDataProcessor.add(dataProcessor);
     }
 
@@ -78,7 +80,7 @@ public class ThreadPool<T, K> {
         while(!finished) {
             if(threads.stream().allMatch(PooledThread::isFinished)) {
                 try {
-                    allDataProcessor.forEach(tkMapDataProcessor -> tkMapDataProcessor.execute(results));
+                    allDataProcessor.forEach(tkMapDataProcessor -> tkMapDataProcessor.accept(results));
                     finished = true;
                 }catch (Exception e) {
                     e.printStackTrace();
@@ -108,7 +110,7 @@ public class ThreadPool<T, K> {
         results.put(input, result);
         if(!directDataProcessor.isEmpty())
             try {
-                directDataProcessor.forEach(dataProcessor -> dataProcessor.execute(input, result));
+                directDataProcessor.forEach(dataProcessor -> dataProcessor.accept(input, result));
             }catch (Exception e) {
                 System.out.println("Direct Data Processor created an Exception");
                 e.printStackTrace();
